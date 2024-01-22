@@ -105,8 +105,11 @@ def check_obscures(browser, xpath, type):
 
 
 class Search:
-    def __init__(self,browser,city):
-        self.browser=browser
+    def __init__(self,city):
+        dfolder='./downloads'
+        geko_path='/Users/mikelgallo/repos2/text_mining/Scraping_UN/books/geckodriver'
+        link='https://www.booking.com/index.es.html'
+        self.browser= start_up(dfolder=dfolder,link=link,geko_path=geko_path)
         self.city = city
         self.start_day = None
         self.end_day = None
@@ -204,7 +207,7 @@ class Search:
                         row_none = {'Hotels': None, 'Ratings': None, 'Distance': None, 'District': None,'Price':None}
                         self.df.append(row_none)
                         print(row_none)
-                wait = WebDriverWait(self.browser, 10)  # Adjust the timeout as needed
+                wait = WebDriverWait(self.browser, 17)  # Adjust the timeout as needed
                 next_button = wait.until(EC.element_to_be_clickable((By.XPATH, x_path)))
                 next_button.click()
                 num_pages += 1
