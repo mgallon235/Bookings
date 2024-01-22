@@ -109,8 +109,13 @@ def check_obscures(browser, xpath, type):
 
 
 class Search:
-    def __init__(self, city, dfolder, geko_path, link, firefox_binary_path):
-        self.browser= start_up(dfolder=dfolder,link=link,geko_path=geko_path, firefox_binary_path=firefox_binary_path)
+    def __init__(self,city):
+        dfolder='C:/Users/gatla/OneDrive/BSE/Introducion_to_NLP/TA/downloads'
+        geko_path='C:/Users/gatla/OneDrive/BSE/Introducion_to_NLP/TA/geckodriver.exe'
+        link='https://www.booking.com/index.es.html'
+        firefox_binary_path = 'C:/Program Files/Mozilla Firefox/firefox.exe'
+        self.browser= start_up(dfolder=dfolder,link=link,geko_path=geko_path , firefox_binary_path=firefox_binary_path)
+        self.browser.find_element(by='xpath',value='//button[@id="onetrust-accept-btn-handler"]').click() # Accepting cookies after launching browser
         self.city = city
         self.start_day = None
         self.end_day = None
@@ -182,12 +187,13 @@ class Search:
         #Scraping Data and Saving it to a list of dictionaries
             x_path = '/html/body/div[4]/div/div[2]/div/div[2]/div[3]/div[2]/div[2]/div[4]/div[2]/nav/nav/div/div[3]/button/span/span'
             result_pg = self.result_pages()
-            num_pages = 0
             self.df = []
             for i in range(1,max_p+1):
+                time.sleep(3)
                 hotels = self.browser.find_elements('xpath','//div[@class="f6431b446c a15b38c233"]')
                 ratings = self.browser.find_elements('xpath','//div[@class="a3b8729ab1 d86cee9b25"]')
                 prices = self.browser.find_elements('xpath','//span[@class="f6431b446c fbfd7c1165 e84eb96b1f"]')
+                links = self.browser.find_elements('xpath', './/a[@class="a78ca197d0"]')
                 districts_list = []
                 districts = self.browser.find_elements('xpath','//span[@class="aee5343fdb def9bc142a"]')
                 for i in districts:
@@ -195,20 +201,22 @@ class Search:
                         districts_list.append(i)
                 #retrieving only center distances / Confirm why the filter worked despite not having the right span class in all cases
                 distance_center = []
-                distance = self.browser.find_elements('xpath','//div[@class="abf093bdfe ecc6a9ed89"]//span[@class="f419a93f12"]')
+                distance = self.browser.find_elements('xpath','//span[@class="f419a93f12"]')
                 for i in distance:
                     if 'centro' in i.text:
                         distance_center.append(i)
-                for a, b, c, d, e in zip(hotels, ratings, distance_center,districts_list, prices):
+                for a, b, c, d, e, f in zip(hotels, ratings, distance_center,districts_list, prices, links):
                     try:
-                        row_data = {'Hotels': a.text, 'Ratings': b.text, 'Distance': c.text, 'District': d.text, 'Price': e.text}
-                        print(row_data)
+                        row_data = {'Hotels': a.text, 'Ratings': b.text, 'Distance': c.text, 'District': d.text, 'Price': e.text, 'Link': f.get_attribute('href')}
                         self.df.append(row_data)
                     except Exception as e:
-                        row_none = {'Hotels': None, 'Ratings': None, 'Distance': None, 'District': None,'Price':None}
+                        row_none = {'Hotels': None, 'Ratings': None, 'Distance': None, 'District': None,'Price': None, 'Link': None}
                         self.df.append(row_none)
                         print(row_none)
                 wait = WebDriverWait(self.browser, 17)  # Adjust the timeout as needed
                 next_button = wait.until(EC.element_to_be_clickable((By.XPATH, x_path)))
                 next_button.click()
-                num_pages += 1
+                print('next button clicked')
+                
+                
+        
