@@ -6,6 +6,7 @@ from selenium.webdriver.common.by import By
 from selenium.common.exceptions import NoSuchElementException, ElementClickInterceptedException, StaleElementReferenceException
 from selenium import webdriver
 import os
+from tqdm import tqdm
 from bs4 import BeautifulSoup
 import time
 from selenium import webdriver
@@ -114,6 +115,7 @@ class Search:
         self.start_day = None
         self.end_day = None
         self.num_pages = None
+        self.df_list = None
         self.df = None
     
     def input_city(self):
@@ -182,9 +184,13 @@ class Search:
             x_path = '/html/body/div[4]/div/div[2]/div/div[2]/div[3]/div[2]/div[2]/div[4]/div[2]/nav/nav/div/div[3]/button/span/span'
             result_pg = self.result_pages()
             num_pages = 0
-            self.df = []
+            self.df_list = []
             for i in range(1,max_p+1):
                 time.sleep(5)
+                links = []
+                link = self.browser.find_elements('xpath',"//div[@class='d6767e681c']//a")
+                for l in link:
+                    links.append(l.get_attribute('href'))
                 hotels = self.browser.find_elements('xpath','//div[@class="f6431b446c a15b38c233"]')
                 ratings = self.browser.find_elements('xpath','//div[@class="a3b8729ab1 d86cee9b25"]')
                 prices = self.browser.find_elements('xpath','//span[@class="f6431b446c fbfd7c1165 e84eb96b1f"]')
@@ -199,20 +205,38 @@ class Search:
                 for i in distance:
                     if 'centro' in i.text:
                         distance_center.append(i)
-                links = []
-                link = self.browser.find_elements('xpath',"//div[@class='d6767e681c']//a")
-                for l in link:
-                    links.append(l.get_attribute('href'))
                 for a, b, c, d, e, f in zip(hotels, ratings, distance_center,districts_list, prices, links):
                     try:
                         row_data = {'Hotels': a.text, 'Ratings': b.text, 'Distance': c.text, 'District': d.text, 'Price': e.text, 'Link': f}
                         print(row_data)
-                        self.df.append(row_data)
+                        self.df_list.append(row_data)
                     except Exception as e:
                         row_none = {'Hotels': None, 'Ratings': None, 'Distance': None, 'District': None,'Price':None, 'Link': None}
-                        self.df.append(row_none)
+                        self.df_list.append(row_none)
                         print(row_none)
                 wait = WebDriverWait(self.browser, 10)  # Adjust the timeout as needed
                 next_button = wait.until(EC.element_to_be_clickable((By.XPATH, x_path)))
                 next_button.click()
                 num_pages += 1
+            self.df = pd.DataFrame(self.df_list)
+
+
+    def test1(self):
+        descriptions = []
+        path = '/Users/mikelgallo/repos2/Bookings/mikel_folder'
+        links = self.df['Link'].tolist()
+        for i in tqdm(links, desc="Processing Links"):
+            URL = f'{i}'
+
+            headers = {'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:121.0) Gecko/20100101 Firefox/121.0'}
+            response = requests.get(URL, headers=headers)
+            soup = BeautifulSoup(response.text, 'html.parser')
+            
+            div = soup.find('div', {'id': 'property_description_content'})
+
+            # Find all p elements with a specific class within the div
+            specific_class_p_elements = div.find_all('p', class_='a53cbfa6de b3efd73f69')
+            
+            for p in specific_class_p_elements:
+                descriptions.append(p.get_text(strip=True))
+        return descriptions
