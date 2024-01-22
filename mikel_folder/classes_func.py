@@ -199,13 +199,17 @@ class Search:
                 for i in distance:
                     if 'centro' in i.text:
                         distance_center.append(i)
-                for a, b, c, d, e in zip(hotels, ratings, distance_center,districts_list, prices):
+                links = []
+                link = self.browser.find_elements('xpath',"//div[@class='d6767e681c']//a")
+                for l in link:
+                    links.append(l.get_attribute('href'))
+                for a, b, c, d, e, f in zip(hotels, ratings, distance_center,districts_list, prices, links):
                     try:
-                        row_data = {'Hotels': a.text, 'Ratings': b.text, 'Distance': c.text, 'District': d.text, 'Price': e.text}
+                        row_data = {'Hotels': a.text, 'Ratings': b.text, 'Distance': c.text, 'District': d.text, 'Price': e.text, 'Link': f}
                         print(row_data)
                         self.df.append(row_data)
                     except Exception as e:
-                        row_none = {'Hotels': None, 'Ratings': None, 'Distance': None, 'District': None,'Price':None}
+                        row_none = {'Hotels': None, 'Ratings': None, 'Distance': None, 'District': None,'Price':None, 'Link': None}
                         self.df.append(row_none)
                         print(row_none)
                 wait = WebDriverWait(self.browser, 10)  # Adjust the timeout as needed
