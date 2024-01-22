@@ -184,6 +184,7 @@ class Search:
             num_pages = 0
             self.df = []
             for i in range(1,max_p+1):
+                time.sleep(5)
                 hotels = self.browser.find_elements('xpath','//div[@class="f6431b446c a15b38c233"]')
                 ratings = self.browser.find_elements('xpath','//div[@class="a3b8729ab1 d86cee9b25"]')
                 prices = self.browser.find_elements('xpath','//span[@class="f6431b446c fbfd7c1165 e84eb96b1f"]')
@@ -207,7 +208,7 @@ class Search:
                         row_none = {'Hotels': None, 'Ratings': None, 'Distance': None, 'District': None,'Price':None}
                         self.df.append(row_none)
                         print(row_none)
-                wait = WebDriverWait(self.browser, 17)  # Adjust the timeout as needed
+                wait = WebDriverWait(self.browser, 10)  # Adjust the timeout as needed
                 next_button = wait.until(EC.element_to_be_clickable((By.XPATH, x_path)))
                 next_button.click()
                 num_pages += 1
