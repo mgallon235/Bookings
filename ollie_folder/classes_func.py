@@ -194,6 +194,8 @@ class Search:
                 ratings = self.browser.find_elements('xpath','//div[@class="a3b8729ab1 d86cee9b25"]')
                 prices = self.browser.find_elements('xpath','//span[@class="f6431b446c fbfd7c1165 e84eb96b1f"]')
                 links = self.browser.find_elements('xpath', './/a[@class="a78ca197d0"]')
+                elements = self.browser.find_elements('xpath', '//div[@class="b3f3c831be"][@aria-label]')
+                stars = [element.get_attribute('aria-label') for element in elements]
                 districts_list = []
                 districts = self.browser.find_elements('xpath','//span[@class="aee5343fdb def9bc142a"]')
                 for i in districts:
@@ -205,18 +207,42 @@ class Search:
                 for i in distance:
                     if 'centro' in i.text:
                         distance_center.append(i)
-                for a, b, c, d, e, f in zip(hotels, ratings, distance_center,districts_list, prices, links):
+                for a, b, c, d, e, f, d in zip(hotels, ratings, distance_center,districts_list, prices, links, stars):
+                    row_data = {}
                     try:
-                        row_data = {'Hotels': a.text, 'Ratings': b.text, 'Distance': c.text, 'District': d.text, 'Price': e.text, 'Link': f.get_attribute('href')}
-                        self.df.append(row_data)
-                    except Exception as e:
-                        row_none = {'Hotels': None, 'Ratings': None, 'Distance': None, 'District': None,'Price': None, 'Link': None}
-                        self.df.append(row_none)
-                        print(row_none)
+                        row_data['Hotels'] = a.text
+                    except:
+                        row_data['Hotels'] = None
+                    try:
+                        row_data['Ratings'] = b.text
+                    except:
+                        row_data['Ratings'] = None                    
+                    try:
+                        row_data['Distance'] = c.text
+                    except:
+                        row_data['Distance'] = None                    
+                    try:
+                        row_data['District'] = d.text
+                    except:
+                        row_data['District'] = None                    
+                    try:
+                        row_data['Price'] = e.text
+                    except:
+                        row_data['Price'] = None                    
+                    try:
+                        row_data['Link'] = f.get_attribute('href')
+                    except:
+                        row_data['Link'] = None
+                    try:
+                        row_data['Star'] = d
+                    except:
+                        row_data['Star'] = None
+                    self.df.append(row_data)                  
                 wait = WebDriverWait(self.browser, 17)  # Adjust the timeout as needed
                 next_button = wait.until(EC.element_to_be_clickable((By.XPATH, x_path)))
                 next_button.click()
                 print('next button clicked')
                 
                 
-        
+       
+    
