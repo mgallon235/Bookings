@@ -2,6 +2,7 @@
 
 import json
 import pandas as pd
+import numpy as np
 from selenium.webdriver.common.by import By
 from selenium.common.exceptions import NoSuchElementException, ElementClickInterceptedException, StaleElementReferenceException
 from selenium import webdriver
@@ -219,6 +220,89 @@ class Search:
                 next_button.click()
                 num_pages += 1
             self.df = pd.DataFrame(self.df_list)
+        
+    def scrape_results_2(self, max_p, district_filter):
+        num_pages = 0
+        self.df_list = []
+        #Click page path
+        x_path = '/html/body/div[4]/div/div[2]/div/div[2]/div[3]/div[2]/div[2]/div[4]/div[2]/nav/nav/div/div[3]/button/span/span'
+
+        for i in range(1, max_p):
+            time.sleep(7)
+            links = []
+            try:
+                link = self.browser.find_elements('xpath', "//div[@class='d6767e681c']//a")
+                for i in link:
+                    links.append(i.get_attribute('href'))
+            except NoSuchElementException:
+                links.append(np.nan)
+
+            hotels_list = []
+            try:
+                hotels = self.browser.find_elements('xpath', '//div[@class="f6431b446c a15b38c233"]')
+                for hotel in hotels:
+                    hotels_list.append(hotel.text)
+            except NoSuchElementException:
+                hotels_list.append(np.nan)
+
+            prices_list = []
+            try:
+                prices = self.browser.find_elements('xpath', '//span[@class="f6431b446c fbfd7c1165 e84eb96b1f"]')
+                for price in prices:
+                    prices_list.append(price.text)
+            except NoSuchElementException:
+                prices_list.append(np.nan)
+
+            districts_list = []
+            try:
+                districts = self.browser.find_elements('xpath', '//span[@class="aee5343fdb def9bc142a"]')
+                for i in districts:
+                    #', valencia'
+                    if district_filter in i.text.lower():
+                        districts_list.append(i.text)
+            except NoSuchElementException:
+                districts_list.append(np.nan)
+            except:
+                districts_list.append(np.nan)
+
+            # Retrieving only center distances
+            distance_center = []
+            try:
+                distance = self.browser.find_elements('xpath', '//div[@class="abf093bdfe ecc6a9ed89"]//span[@class="f419a93f12"]')
+                for i in distance:
+                    if 'centro' in i.text:
+                        distance_center.append(i.text)
+            except NoSuchElementException:
+                distance_center.append(np.nan)
+            except:
+                distance_center.append(np.nan)
+        ## Ratings and Comments
+            ratings_list = []
+            try:
+                ratings = self.browser.find_elements('xpath', '//div[@class="a3b8729ab1 d86cee9b25"]')
+                for rate in ratings:
+                    ratings_list.append(rate.text)
+            except NoSuchElementException:
+                ratings_list.append(np.nan)
+            comment_list = []
+            try:
+                comentarios = self.browser.find_elements('xpath', '//div[@class="abf093bdfe f45d8e4c32 d935416c47"]')
+                for com in comentarios:
+                    comment_list.append(com.text)
+            except:
+                comment_list.append(np.nan)
+
+            for a, b, c, d, e, f, g in zip(hotels_list, distance_center, districts_list, prices_list,ratings_list,comment_list, links):
+                row_data = {'Hotels': a, 'Distance': b, 'District': c, 'Price': d, 'Rating': e, 'Comments': f, 'Link': g}
+                print(row_data)
+                self.df_list.append(row_data)
+
+            wait = WebDriverWait(self.browser, 10)  # Adjust the timeout as needed
+            next_button = wait.until(EC.element_to_be_clickable((By.XPATH, x_path)))
+            next_button.click()
+            num_pages += 1
+        self.df = pd.DataFrame(self.df_list)
+
 
 
     def test1(self):
