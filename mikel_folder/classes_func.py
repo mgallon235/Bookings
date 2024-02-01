@@ -62,23 +62,6 @@ def start_up(link, dfolder, geko_path,donwload=True):
     time.sleep(5)  # Adjust sleep time as needed
     return browser
 
-def check_and_click(browser, xpath, type):
-    '''
-    Function that checks whether the object is clickable and, if so, clicks on
-    it. If not, waits one second and tries again.
-    '''
-    ck = False
-    ss = 0
-    while ck == False:
-        ck = check_obscures(browser, xpath, type)
-        time.sleep(1)
-        ss += 1
-        if ss == 15:
-            # warn_sound()
-            # return NoSuchElementException
-            ck = True
-            # browser.quit()
-
 def check_obscures(browser, xpath, type):
     '''
     Function that checks whether the object is being "obscured" by any element so
@@ -100,6 +83,23 @@ def check_obscures(browser, xpath, type):
         return False
     return True
 
+def check_and_click(browser, xpath, type):
+    '''
+    Function that checks whether the object is clickable and, if so, clicks on
+    it. If not, waits one second and tries again.
+    '''
+    ck = False
+    ss = 0
+    while ck == False:
+        ck = check_obscures(browser, xpath, type)
+        time.sleep(1)
+        ss += 1
+        if ss == 15:
+            # warn_sound()
+            # return NoSuchElementException
+            ck = True
+            # browser.quit()
+            
 # lets open booking:
 
 #dfolder='./downloads'
