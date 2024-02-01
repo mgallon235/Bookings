@@ -297,46 +297,33 @@ class Search:
                 next_button[1].click()
         self.df = pd.DataFrame(self.df_list)
 
+    
+    def scrape_descriptions(self):
+            descriptions = []
+            links = self.df['Link'].tolist()
 
-    def scrape_description(self):
-        headers = {'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:121.0) Gecko/20100101 Firefox/121.0'}
-        try:
-            response = requests.get(url, headers=headers, timeout=10)
-            response.raise_for_status() 
-            # time.sleep(0.5)
-        except requests.exceptions.RequestException as e:
-            print(f"Error processing {url}: {e}")
-            return None
+            def process_link(link):
+                URL = f'{link}'
+                headers = {'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:121.0) Gecko/20100101 Firefox/121.0'}
+                response = requests.get(URL, headers=headers)
+                soup = BeautifulSoup(response.text, 'html.parser')
+                
+                div = soup.find('div', {'id': 'property_description_content'})
 
-        soup = BeautifulSoup(response.text, 'html.parser')
-        description_tag = soup.find('p', class_='a53cbfa6de b3efd73f69')
+                # Find all p elements with a specific class within the div
+                specific_class_p_elements = div.find_all('p', class_='a53cbfa6de b3efd73f69')
+                
+                for p in specific_class_p_elements:
+                    descriptions.append(p.get_text(strip=True))
 
-        if description_tag:
-            return description_tag.get_text(strip=True)
-        else:
-            print(f"Description tag not found on the page: {url}")
-            return None
+            # Create a ThreadPoolExecutor to run operations in parallel
+            with ThreadPoolExecutor(max_workers=10) as executor:
+                # Use executor.map to apply the process_link function to each URL in parallel
+                for i, descr in enumerate(tqdm(executor.map(process_link, links), total=len(links), desc="Processing Links")):
+                    if (i + 1) % 50 == 0 or (i + 1) == len(links):  # Check for the last batch as well
+                        print(f"Scraped {i + 1} links")
+            self.df['descriptions'] = descriptions
+            #return descriptions
 
-        # Set the number of concurrent threads (adjust this based on the processing power of your computer)
 
-
-
-
-    def test1(self):
-        descriptions = []
-        links = self.df['Link'].tolist()
-        for i in tqdm(links, desc="Processing Links"):
-            URL = f'{i}'
-
-            headers = {'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:121.0) Gecko/20100101 Firefox/121.0'}
-            response = requests.get(URL, headers=headers)
-            soup = BeautifulSoup(response.text, 'html.parser')
-            
-            div = soup.find('div', {'id': 'property_description_content'})
-
-            # Find all p elements with a specific class within the div
-            specific_class_p_elements = div.find_all('p', class_='a53cbfa6de b3efd73f69')
-            
-            for p in specific_class_p_elements:
-                descriptions.append(p.get_text(strip=True))
-        return descriptions
+            # Perform any additional operations with descriptions as needed
