@@ -49,12 +49,13 @@ def ffx_preferences(dfolder, download=False):
     options.profile = profile
     return options
 
-def start_up(link, dfolder, geko_path,donwload=True):
+def start_up(link, dfolder, geko_path, firefox_binary_path, donwload=True):
     # geko_path='/Users/luisignaciomenendezgarcia/Dropbox/CLASSES/class_bse_text_mining/class_scraping_bse/booking/geckodriver'
     # download_path='./downloads'
     os.makedirs(dfolder, exist_ok=True)
 
     options = ffx_preferences(dfolder,donwload)
+    options.binary_location = firefox_binary_path
     service = Service(geko_path)
     browser = webdriver.Firefox(service=service, options=options)
     # Enter the website address here
@@ -114,7 +115,8 @@ class Search:
     def __init__(self,city,start_day,end_day):
         dfolder='./downloads'
         #geko_path='/Users/mikelgallo/repos2/text_mining/Scraping_UN/books/geckodriver'
-        geko_path='./driver/geckodriver'
+        geko_path='./driver/geckodriver.exe'
+        firefox_binary_path = 'C:/Program Files/Mozilla Firefox/firefox.exe'
         link='https://www.booking.com/index.es.html'
         self.browser= start_up(dfolder=dfolder,link=link,geko_path=geko_path)
         self.city = city
