@@ -6,6 +6,7 @@ import numpy as np
 from selenium.webdriver.common.by import By
 from selenium.common.exceptions import NoSuchElementException, ElementClickInterceptedException, StaleElementReferenceException
 from selenium import webdriver
+import re
 import os
 from tqdm import tqdm
 from bs4 import BeautifulSoup
@@ -18,6 +19,9 @@ from datetime import datetime, timedelta
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
+#Parallelization
+from concurrent.futures import ThreadPoolExecutor
+
 
 # Go get geckodriver from : https://github.com/mozilla/geckodriver/releases
 
@@ -107,14 +111,17 @@ def check_obscures(browser, xpath, type):
 
 
 class Search:
-    def __init__(self,city):
+    def __init__(self,city,start_day,end_day):
         dfolder='./downloads'
-        geko_path='/Users/mikelgallo/repos2/text_mining/Scraping_UN/books/geckodriver'
+        #geko_path='/Users/mikelgallo/repos2/text_mining/Scraping_UN/books/geckodriver'
+        geko_path='./driver/geckodriver'
         link='https://www.booking.com/index.es.html'
         self.browser= start_up(dfolder=dfolder,link=link,geko_path=geko_path)
         self.city = city
-        self.start_day = None
-        self.end_day = None
+        #self.cnt_filt = ', barcelona' if self.city == 'Barcelona' else ', valencia'
+        self.cnt_filt = f', {self.city.lower()}'
+        self.start_day = start_day
+        self.end_day = end_day
         self.num_pages = None
         self.df_list = None
         self.df = None
@@ -145,7 +152,7 @@ class Search:
     def date_selector(self,date_k):   
         loop = False
         n_pg = 0
-
+        wait = WebDriverWait(self.browser, 2)
         while not loop:
             #Extract dates from table
             dates_f = self.extract_dates()
@@ -153,23 +160,32 @@ class Search:
             for date in dates_f:
                 if date.get_attribute("data-date") == date_k:
                     date.click()
-                    print('click')
-                    print('found in',n_pg+1)
+                    #print('click')
+                    #print('found in',n_pg+1)
                     loop = True
                     break
                     
             n_pg +=1
-            print('date not found in page:',n_pg)
-            print('moving to next page')
+            #print('date not found in page:',n_pg)
+            #print('moving to next page')
             time.sleep(1)
             if n_pg <= 1:
-                x_path = '/html/body/div[3]/div[2]/div/form/div[1]/div[2]/div/div[2]/div/nav/div[2]/div/div[1]/button'
+                #x_path = '/html/body/div[3]/div[2]/div/form/div[1]/div[2]/div/div[2]/div/nav/div[2]/div/div[1]/button'
+                x_path = '//button[@class="a83ed08757 c21c56c305 f38b6daa18 d691166b09 f671049264 deab83296e f4552b6561 dc72a8413c f073249358"]'
+                next_button = wait.until(EC.element_to_be_clickable((By.XPATH, x_path)))
+                next_button.click()
             else:
-                x_path = '/html/body/div[3]/div[2]/div/form/div[1]/div[2]/div/div[2]/div/nav/div[2]/div/div[1]/button[2]'
-            self.browser.find_element(by='xpath',value=x_path).click()
-        
+                #x_path = '/html/body/div[3]/div[2]/div/form/div[1]/div[2]/div/div[2]/div/nav/div[2]/div/div[1]/button[2]'
+                x_path = '//button[@class="a83ed08757 c21c56c305 f38b6daa18 d691166b09 f671049264 deab83296e f4552b6561 dc72a8413c f073249358"]'
+                next_button = wait.until(EC.element_to_be_clickable((By.XPATH, x_path)))
+                next_button.click()
+                #self.browser.find_element(by='xpath',value=x_path)[1].click()
+            
+ 
     def search_results(self):
-        my_xpath='/html/body/div[3]/div[2]/div/form/div[1]/div[4]/button/span'
+        #my_xpath='/html/body/div[3]/div[2]/div/form/div[1]/div[4]/button/span'
+        my_xpath='//div[@class="e22b782521 d12ff5f5bf"]//button[@class="a83ed08757 c21c56c305 a4c1805887 f671049264 d2529514af c082d89982 cceeb8986b"]'
+
         #Click search button
         check_obscures(self.browser,my_xpath , type='xpath')
         check_and_click(self.browser,my_xpath , type='xpath')
@@ -180,134 +196,134 @@ class Search:
         num_pages = int(a[-1].text)
         return num_pages
     
+
+
     def scrape_results(self,max_p):
-        #Scraping Data and Saving it to a list of dictionaries
-            x_path = '/html/body/div[4]/div/div[2]/div/div[2]/div[3]/div[2]/div[2]/div[4]/div[2]/nav/nav/div/div[3]/button/span/span'
-            result_pg = self.result_pages()
-            num_pages = 0
-            self.df_list = []
-            for i in range(1,max_p+1):
-                time.sleep(5)
-                links = []
-                link = self.browser.find_elements('xpath',"//div[@class='d6767e681c']//a")
-                for l in link:
-                    links.append(l.get_attribute('href'))
-                hotels = self.browser.find_elements('xpath','//div[@class="f6431b446c a15b38c233"]')
-                ratings = self.browser.find_elements('xpath','//div[@class="a3b8729ab1 d86cee9b25"]')
-                prices = self.browser.find_elements('xpath','//span[@class="f6431b446c fbfd7c1165 e84eb96b1f"]')
-                districts_list = []
-                districts = self.browser.find_elements('xpath','//span[@class="aee5343fdb def9bc142a"]')
-                for i in districts:
-                    if ', barcelona' in i.text.lower():
-                        districts_list.append(i)
-                #retrieving only center distances / Confirm why the filter worked despite not having the right span class in all cases
-                distance_center = []
-                distance = self.browser.find_elements('xpath','//div[@class="abf093bdfe ecc6a9ed89"]//span[@class="f419a93f12"]')
-                for i in distance:
-                    if 'centro' in i.text:
-                        distance_center.append(i)
-                for a, b, c, d, e, f in zip(hotels, ratings, distance_center,districts_list, prices, links):
-                    try:
-                        row_data = {'Hotels': a.text, 'Ratings': b.text, 'Distance': c.text, 'District': d.text, 'Price': e.text, 'Link': f}
-                        print(row_data)
-                        self.df_list.append(row_data)
-                    except Exception as e:
-                        row_none = {'Hotels': None, 'Ratings': None, 'Distance': None, 'District': None,'Price':None, 'Link': None}
-                        self.df_list.append(row_none)
-                        print(row_none)
-                wait = WebDriverWait(self.browser, 10)  # Adjust the timeout as needed
-                next_button = wait.until(EC.element_to_be_clickable((By.XPATH, x_path)))
-                next_button.click()
-                num_pages += 1
-            self.df = pd.DataFrame(self.df_list)
-        
-    def scrape_results_2(self, max_p, district_filter):
-        num_pages = 0
         self.df_list = []
-        #Click page path
-        x_path = '/html/body/div[4]/div/div[2]/div/div[2]/div[3]/div[2]/div[2]/div[4]/div[2]/nav/nav/div/div[3]/button/span/span'
-
-        for i in range(1, max_p):
-            time.sleep(7)
+        wait = WebDriverWait(self.browser, 4)
+        for num in range(1, max_p+1):
             links = []
-            try:
-                link = self.browser.find_elements('xpath', "//div[@class='d6767e681c']//a")
-                for i in link:
-                    links.append(i.get_attribute('href'))
-            except NoSuchElementException:
-                links.append(np.nan)
-
             hotels_list = []
-            try:
-                hotels = self.browser.find_elements('xpath', '//div[@class="f6431b446c a15b38c233"]')
-                for hotel in hotels:
-                    hotels_list.append(hotel.text)
-            except NoSuchElementException:
-                hotels_list.append(np.nan)
-
             prices_list = []
-            try:
-                prices = self.browser.find_elements('xpath', '//span[@class="f6431b446c fbfd7c1165 e84eb96b1f"]')
-                for price in prices:
-                    prices_list.append(price.text)
-            except NoSuchElementException:
-                prices_list.append(np.nan)
-
             districts_list = []
-            try:
-                districts = self.browser.find_elements('xpath', '//span[@class="aee5343fdb def9bc142a"]')
-                for i in districts:
-                    #', valencia'
-                    if district_filter in i.text.lower():
-                        districts_list.append(i.text)
-            except NoSuchElementException:
-                districts_list.append(np.nan)
-            except:
-                districts_list.append(np.nan)
-
-            # Retrieving only center distances
             distance_center = []
-            try:
-                distance = self.browser.find_elements('xpath', '//div[@class="abf093bdfe ecc6a9ed89"]//span[@class="f419a93f12"]')
-                for i in distance:
-                    if 'centro' in i.text:
-                        distance_center.append(i.text)
-            except NoSuchElementException:
-                distance_center.append(np.nan)
-            except:
-                distance_center.append(np.nan)
-        ## Ratings and Comments
             ratings_list = []
-            try:
-                ratings = self.browser.find_elements('xpath', '//div[@class="a3b8729ab1 d86cee9b25"]')
-                for rate in ratings:
-                    ratings_list.append(rate.text)
-            except NoSuchElementException:
-                ratings_list.append(np.nan)
             comment_list = []
-            try:
-                comentarios = self.browser.find_elements('xpath', '//div[@class="abf093bdfe f45d8e4c32 d935416c47"]')
-                for com in comentarios:
-                    comment_list.append(com.text)
-            except:
-                comment_list.append(np.nan)
-
-            for a, b, c, d, e, f, g in zip(hotels_list, distance_center, districts_list, prices_list,ratings_list,comment_list, links):
-                row_data = {'Hotels': a, 'Distance': b, 'District': c, 'Price': d, 'Rating': e, 'Comments': f, 'Link': g}
-                print(row_data)
+            stars = []
+            time.sleep(4)
+            #hotel_overview = browser.find_elements('xpath','//div[@class="c066246e13"]')
+            hotel_overview = wait.until(EC.presence_of_all_elements_located((By.XPATH, '//div[@class="c066246e13"]')))
+            for hotel in hotel_overview:
+                # Retrieve links (URL)
+                try:
+                    link = hotel.find_elements('xpath', ".//div[@class='d6767e681c']//a")
+                    links.append(link[0].get_attribute('href'))
+                except NoSuchElementException:
+                    links.append(np.nan)
+                # Retrieve Hotel names
+                try:
+                    hotels = hotel.find_elements('xpath', './/div[@class="f6431b446c a15b38c233"]')
+                    hotels_list.append(hotels[0].text)
+                except NoSuchElementException:
+                    hotels_list.append(np.nan)
+                # Retrieve Prices
+                try:
+                    prices = hotel.find_elements('xpath', './/span[@class="f6431b446c fbfd7c1165 e84eb96b1f"]')
+                    prices_list.append(prices[0].text)
+                except NoSuchElementException:
+                    prices_list.append(np.nan)
+                #Retrieve Districts
+                try:
+                    districts = hotel.find_elements('xpath', './/span[@class="aee5343fdb def9bc142a"]')
+                    for i in districts:
+                        if self.cnt_filt in i.text.lower():
+                            districts_list.append(i.text)
+                except NoSuchElementException:
+                    districts_list.append(np.nan)
+                except:
+                    districts_list.append(np.nan)
+                # Retrieving only center distances
+                try:
+                    distance = hotel.find_elements('xpath', './/div[@class="abf093bdfe ecc6a9ed89"]//span[@class="f419a93f12"]')
+                    for i in distance:
+                        if 'centro' in i.text:
+                            distance_center.append(i.text)
+                except NoSuchElementException:
+                    distance_center.append(np.nan)
+                except:
+                    distance_center.append(np.nan)
+                # Retrieve Ratings
+                try:
+                    ratings = hotel.find_elements('xpath', './/div[@class="a3b8729ab1 d86cee9b25"]')
+                    ratings_list.extend([rate.text for rate in ratings])
+                except NoSuchElementException:
+                    ratings_list.append(np.nan)
+                except:
+                    ratings_list.append(np.nan)
+                # Retrieve comments
+                try:
+                    comentarios = hotel.find_elements('xpath', './/div[@class="abf093bdfe f45d8e4c32 d935416c47"]')
+                    comment_list.append(comentarios[0].text)
+                except NoSuchElementException:
+                    comment_list.append(np.nan)
+                except:
+                    comment_list.append(np.nan)
+                try:
+                    elements = hotel.find_elements('xpath', '//div[@class="b3f3c831be"][@aria-label]')
+                    stars = [element.get_attribute('aria-label') for element in elements]
+                except NoSuchElementException:
+                    stars.append(np.nan)
+                except:
+                    stars.append(np.nan)
+            
+            for a, b, c, d, e, f, g, h in zip(hotels_list, distance_center, districts_list, prices_list,ratings_list,stars,comment_list, links):
+                row_data = {'Hotels': a, 'Distance': b, 'District': c, 'Price': d, 'Rating': e, 'Stars': f, 'Comments': g, 'Link': h}
+                #print(row_data)
                 self.df_list.append(row_data)
-
-            wait = WebDriverWait(self.browser, 10)  # Adjust the timeout as needed
-            next_button = wait.until(EC.element_to_be_clickable((By.XPATH, x_path)))
-            next_button.click()
-            num_pages += 1
+        
+    
+            if num == 1:
+                wait = WebDriverWait(self.browser, 5)  # Adjust the timeout as needed
+                next_button = wait.until(EC.element_to_be_clickable((By.XPATH, '//button[@class="a83ed08757 c21c56c305 f38b6daa18 d691166b09 ab98298258 deab83296e bb803d8689 a16ddf9c57"]')))
+                print(f'page {num}')
+                next_button.click()
+            elif num == max_p+1:
+                print('complete')
+                break
+            else:
+                wait = WebDriverWait(self.browser, 5)  # Adjust the timeout as needed
+                next_button = wait.until(EC.presence_of_all_elements_located((By.XPATH, '//button[@class="a83ed08757 c21c56c305 f38b6daa18 d691166b09 ab98298258 deab83296e bb803d8689 a16ddf9c57"]')))
+                print(f'page {num}')
+                next_button[1].click()
         self.df = pd.DataFrame(self.df_list)
+
+
+    def scrape_description(self):
+        headers = {'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:121.0) Gecko/20100101 Firefox/121.0'}
+        try:
+            response = requests.get(url, headers=headers, timeout=10)
+            response.raise_for_status() 
+            # time.sleep(0.5)
+        except requests.exceptions.RequestException as e:
+            print(f"Error processing {url}: {e}")
+            return None
+
+        soup = BeautifulSoup(response.text, 'html.parser')
+        description_tag = soup.find('p', class_='a53cbfa6de b3efd73f69')
+
+        if description_tag:
+            return description_tag.get_text(strip=True)
+        else:
+            print(f"Description tag not found on the page: {url}")
+            return None
+
+        # Set the number of concurrent threads (adjust this based on the processing power of your computer)
+
 
 
 
     def test1(self):
         descriptions = []
-        path = '/Users/mikelgallo/repos2/Bookings/mikel_folder'
         links = self.df['Link'].tolist()
         for i in tqdm(links, desc="Processing Links"):
             URL = f'{i}'
