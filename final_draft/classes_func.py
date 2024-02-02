@@ -22,7 +22,7 @@ from selenium.webdriver.support import expected_conditions as EC
 #Parallelization
 from concurrent.futures import ThreadPoolExecutor
 
-
+os.cpu_count()
 # Go get geckodriver from : https://github.com/mozilla/geckodriver/releases
 
 def ffx_preferences(dfolder, download=False):
@@ -326,7 +326,8 @@ class Search:
                     descriptions.append(p.get_text(strip=True))
 
             # Create a ThreadPoolExecutor to run operations in parallel
-            with ThreadPoolExecutor(max_workers=10) as executor:
+            threads = os.cpu_count()
+            with ThreadPoolExecutor(max_workers= threads-1) as executor:
                 # Use executor.map to apply the process_link function to each URL in parallel
                 for i, descr in enumerate(tqdm(executor.map(process_link, links), total=len(links), desc="Processing Links")):
                     if (i + 1) % 50 == 0 or (i + 1) == len(links):  # Check for the last batch as well
