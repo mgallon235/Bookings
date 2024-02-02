@@ -210,7 +210,7 @@ class Search:
     def scrape_results(self,max_p):
         self.df_list = []
         wait = WebDriverWait(self.browser, 4)
-        for num in range(1, max_p+1):
+        for num in range(1, max_p):
             links = []
             hotels_list = []
             prices_list = []
