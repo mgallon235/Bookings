@@ -155,31 +155,40 @@ class Search:
         wait = WebDriverWait(self.browser, 2)
         while not loop:
             #Extract dates from table
+            time.sleep(1)
             dates_f = self.extract_dates()
             #Loop over dates and click if date of interest is found
+            date_found_on_page = False
+            # Flag to indicate whether the date is found on the current page
             for date in dates_f:
                 if date.get_attribute("data-date") == date_k:
+                    time.sleep(1)
                     date.click()
                     #print('click')
                     #print('found in',n_pg+1)
                     loop = True
+                    date_found_on_page = True
                     break
-                    
+            if date_found_on_page:
+                #loop = True
+                break  # Break out of the while loop if date is found on the current page
+               
             n_pg +=1
             #print('date not found in page:',n_pg)
             #print('moving to next page')
             time.sleep(1)
             if n_pg <= 1:
-                #x_path = '/html/body/div[3]/div[2]/div/form/div[1]/div[2]/div/div[2]/div/nav/div[2]/div/div[1]/button'
                 x_path = '//button[@class="a83ed08757 c21c56c305 f38b6daa18 d691166b09 f671049264 deab83296e f4552b6561 dc72a8413c f073249358"]'
-                next_button = wait.until(EC.element_to_be_clickable((By.XPATH, x_path)))
-                next_button.click()
             else:
-                #x_path = '/html/body/div[3]/div[2]/div/form/div[1]/div[2]/div/div[2]/div/nav/div[2]/div/div[1]/button[2]'
                 x_path = '//button[@class="a83ed08757 c21c56c305 f38b6daa18 d691166b09 f671049264 deab83296e f4552b6561 dc72a8413c f073249358"]'
+
+            try:
                 next_button = wait.until(EC.element_to_be_clickable((By.XPATH, x_path)))
                 next_button.click()
-                #self.browser.find_element(by='xpath',value=x_path)[1].click()
+            except:
+                # If the next button is not clickable, exit the outer loop
+                print("Date not found on any page")
+                break
             
  
     def search_results(self):
