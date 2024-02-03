@@ -22,7 +22,7 @@ from selenium.webdriver.support import expected_conditions as EC
 #Parallelization
 from concurrent.futures import ThreadPoolExecutor
 
-os.cpu_count()
+#os.cpu_count()
 # Go get geckodriver from : https://github.com/mozilla/geckodriver/releases
 
 def ffx_preferences(dfolder, download=False):
