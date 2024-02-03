@@ -112,7 +112,7 @@ def check_obscures(browser, xpath, type):
 
 class Search:
     def __init__(self,city,start_day,end_day):
-        dfolder='./downloads'
+        dfolder='./downloads_datasets'
         #geko_path='/Users/mikelgallo/repos2/text_mining/Scraping_UN/books/geckodriver'
         geko_path='./driver/geckodriver'
         link='https://www.booking.com/index.es.html'
