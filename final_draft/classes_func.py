@@ -128,6 +128,7 @@ class Search:
         self.df_list = None
         self.df = None
     
+    
     def input_city(self):
         #Find destination button
         self.browser.find_element(by='xpath',value= '//input[@id=":re:"]').click()
@@ -212,7 +213,7 @@ class Search:
     def scrape_results(self,max_p):
         self.df_list = []
         wait = WebDriverWait(self.browser, 4)
-        for num in range(1, max_p+1):
+        for num in range(1, max_p):
             links = []
             hotels_list = []
             prices_list = []
@@ -298,17 +299,21 @@ class Search:
                 next_button = wait.until(EC.element_to_be_clickable((By.XPATH, '//button[@class="a83ed08757 c21c56c305 f38b6daa18 d691166b09 ab98298258 deab83296e bb803d8689 a16ddf9c57"]')))
                 print(f'page {num}')
                 next_button.click()
-            elif num == max_p+1:
+            elif num == max_p:
                 print('complete')
                 break
             else:
                 wait = WebDriverWait(self.browser, 5)  # Adjust the timeout as needed
                 next_button = wait.until(EC.presence_of_all_elements_located((By.XPATH, '//button[@class="a83ed08757 c21c56c305 f38b6daa18 d691166b09 ab98298258 deab83296e bb803d8689 a16ddf9c57"]')))
                 print(f'page {num}')
-                next_button[1].click()
+                if len(next_button) > 1:
+                    next_button[1].click()
+                else:
+                    print("No more pages to click.")
+                    break
+                #next_button[1].click()
         self.df = pd.DataFrame(self.df_list)
 
-    
     def scrape_descriptions(self):
             descriptions = []
             links = self.df['Link'].tolist()
@@ -328,12 +333,76 @@ class Search:
                     descriptions.append(p.get_text(strip=True))
 
             # Create a ThreadPoolExecutor to run operations in parallel
-            with ThreadPoolExecutor(max_workers=10) as executor:
+            threads = os.cpu_count()
+            with ThreadPoolExecutor(max_workers= threads-5) as executor:
                 # Use executor.map to apply the process_link function to each URL in parallel
                 for i, descr in enumerate(tqdm(executor.map(process_link, links), total=len(links), desc="Processing Links")):
-                    if (i + 1) % 50 == 0 or (i + 1) == len(links):  # Check for the last batch as well
-                        print(f"Scraped {i + 1} links")
+                    print(i,descr)
+                    #if (i + 1) % 50 == 0 or (i + 1) == len(links):  # Check for the last batch as well
+                        #print(f"Scraped {i + 1} links")
             self.df['descriptions'] = descriptions
+
+
+
+
+    def scrape_descriptions1(self):
+            descriptions = []
+            links = self.df['Link'].tolist()
+            hotels = self.df['Hotels'].tolist()
+
+            def process_link(link):
+                    try:
+                        URL = f'{link}'
+                        headers = {'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:121.0) Gecko/20100101 Firefox/121.0'}
+                        response = requests.get(URL, headers=headers)
+                        response.raise_for_status()  # Raises HTTPError for bad responses
+                        soup = BeautifulSoup(response.text, 'html.parser')
+
+                        div = soup.find('div', {'id': 'property_description_content'})
+
+                        if div is not None:
+                            # Find all p elements with a specific class within the div
+                            specific_class_p_elements = div.find_all('p', class_='a53cbfa6de b3efd73f69')
+
+                            for p in specific_class_p_elements:
+                                descriptions.append(p.get_text(strip=True))
+                        else:
+                            print(f"Error: 'property_description_content' div not found on {link}")
+                            descriptions.append(np.nan)  # or any value you prefer for NaN
+                    except Exception as e:
+                        print(f"Error processing link {link}: {e}")
+                        descriptions.append(np.nan)  # or any value you prefer for NaN
+                    return descriptions
+
+            # Create a ThreadPoolExecutor to run operations in parallel
+            threads = os.cpu_count()
+            descr_2 = []
+            hotels2 = []
+            with ThreadPoolExecutor(max_workers= threads-3) as executor:
+                # Use executor.map to apply the process_link function to each URL in parallel
+                for i, descr in zip(hotels,tqdm(executor.map(process_link, links), total=len(links), desc="Processing Links")):
+                    descr_2.append((i,descr))
+                    #hotels2.append(hote)
+                    #descr_2.append((hote, descr))  # Append a tuple containing hotel and its descriptions
+                
+                print(descr_2[0])
+                print(descr_2[4])
+                print(descr_2[10])
+
+    # Create a new DataFrame with the last two columns generated
+            #self.desc_df = pd.DataFrame(descr_2, columns=['Hotels', 'Descriptions'])
+
+            
+            #self.desc_df = pd.DataFrame({'Hotels': hotels2, 'Descriptions': descr_2})
+                    #if (i + 1) % 50 == 0 or (i + 1) == len(links):  # Check for the last batch as well
+                    #print(f"Scraped {i + 1} links")
+                
+
+            # Unpack sorted descriptions into separate lists
+            #sorted_links, sorted_descriptions = zip(*descriptions)
+
+            #self.df['descriptions'] = descriptions
+            #self.df['sorted_links'] = sorted_links
             #return descriptions
 
 
