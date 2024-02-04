@@ -303,7 +303,8 @@ class Search:
                 # Retrieve Prices
                 try:
                     prices = hotel.find_elements('xpath', './/span[@class="f6431b446c fbfd7c1165 e84eb96b1f"]')
-                    prices_list.append(prices[0].text)
+                    #prices_list.append(prices[0].text)
+                    prices_list.extend([price.text for price in prices])
                 except NoSuchElementException:
                     prices_list.append(np.nan)
                 #Retrieve Districts
