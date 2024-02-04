@@ -20,7 +20,9 @@ from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 #Parallelization
+import concurrent.futures
 from concurrent.futures import ThreadPoolExecutor
+from tqdm import tqdm
 
 #os.cpu_count()
 # Go get geckodriver from : https://github.com/mozilla/geckodriver/releases
@@ -100,6 +102,34 @@ def check_obscures(browser, xpath, type):
         return False
     return True
 
+def scrape_description(link):
+        URL = f'{link}'
+        headers = {'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:121.0) Gecko/20100101 Firefox/121.0'}
+        response = requests.get(URL, headers=headers)
+        soup = BeautifulSoup(response.text, 'html.parser')
+        
+        # Getting Data
+        div2 = soup.find('div', {'id': 'hp_hotel_name'})
+        div = soup.find('div', {'id': 'property_description_content'})
+        
+        # Find all p elements with a specific class within the div
+        if div is not None:
+            specific_class_p_elements = div.find_all('p', class_='a53cbfa6de b3efd73f69')
+            if div2 is not None:
+                # Find all h2 elements with a specific class within div2
+                specific_class_h_elements = div2.find_all('h2', class_='d2fee87262 pp-header__title')
+            else:
+                specific_class_h_elements = []
+        
+            descriptions = []
+            for h, p in zip(specific_class_h_elements, specific_class_p_elements):
+                descriptions.append((h.get_text(strip=True), p.get_text(strip=True)))
+        else:
+            # If 'div' is not found, return an empty list
+            descriptions = []
+        
+        return descriptions
+
 # lets open booking:
 
 #dfolder='./downloads'
@@ -126,6 +156,29 @@ class Search:
         self.df_list = None
         self.df = None
         self.desc_df = None
+    
+    def remove_cookies(self):
+        self.browser.find_element(by='xpath',value= '//button[@id="onetrust-reject-all-handler"]').click()
+    
+    def remove_google_signin(self):
+        wait_timeout = 10
+        wait = WebDriverWait(self.browser, wait_timeout)
+
+        try:
+            # Switch to the iframe by index (if needed, adjust the index)
+            self.browser.switch_to.frame(0)  # You may need to adjust the index based on your HTML structure
+
+            # Now you can interact with elements within the iframe
+            # Wait for the "Not Now" button to be clickable and click it
+            not_now_button = wait.until(EC.element_to_be_clickable((By.XPATH, "//div[@class='TvD9Pc-Bz112c ZYIfFd-aGxpHf-FnSee' and @aria-label='Cerrar']")))
+            not_now_button.click()
+
+        except Exception as e:
+            print(f"An error occurred while handling the Google Sign-In pop-up: {e}")
+
+        finally:
+            # Switch back to the default content
+            self.browser.switch_to.default_content()
     
     def input_city(self):
         #Find destination button
@@ -200,13 +253,24 @@ class Search:
         check_obscures(self.browser,my_xpath , type='xpath')
         check_and_click(self.browser,my_xpath , type='xpath')
 
+    def remove_genius(self):
+        #time.sleep(5)
+        # Removing the Genius pop-up only requires a clicking outside the pop-up
+        obscured = check_obscures(self.browser,'//div[@class="efdb2b543b e4b7a69a57"]',"xpath")
+        try:
+            if not obscured:
+                self.browser.find_element(by='xpath',value= '//div[@class = "abcc616ec7 cc1b961f14 c180176d40 f11eccb5e8 ff74db973c"]//button[@class="a83ed08757 c21c56c305 f38b6daa18 d691166b09 ab98298258 deab83296e f4552b6561"]').click()
+            else:
+                print('no element blocking the path')
+        except Exception as e:
+            print(f"An error occurred: {e}")
+
     def result_pages(self):
         num_pages = 0
         a = self.browser.find_elements('xpath','//div[@data-testid="pagination"]//li[@class="b16a89683f"]')
         num_pages = int(a[-1].text)
         return num_pages
     
-
 
     def scrape_results(self,max_p):
         self.df_list = []
@@ -312,96 +376,16 @@ class Search:
                 #next_button[1].click()
         self.df = pd.DataFrame(self.df_list)
 
-    def scrape_descriptions(self):
-            descriptions = []
-            links = self.df['Link'].tolist()
+    
+    def execute_scrape(self):
+        descriptions = []
+        linkey = self.df['Link']
 
-            def process_link(link):
-                URL = f'{link}'
-                headers = {'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:121.0) Gecko/20100101 Firefox/121.0'}
-                response = requests.get(URL, headers=headers)
-                soup = BeautifulSoup(response.text, 'html.parser')
-                
-                div = soup.find('div', {'id': 'property_description_content'})
+        threads = os.cpu_count()
+        with concurrent.futures.ThreadPoolExecutor(max_workers=threads-2) as executor:
+            results = list(tqdm(executor.map(scrape_description, linkey), total=len(linkey), desc="Processing Links"))
 
-                # Find all p elements with a specific class within the div
-                specific_class_p_elements = div.find_all('p', class_='a53cbfa6de b3efd73f69')
-                
-                for p in specific_class_p_elements:
-                    descriptions.append(p.get_text(strip=True))
-
-            # Create a ThreadPoolExecutor to run operations in parallel
-            threads = os.cpu_count()
-            with ThreadPoolExecutor(max_workers= threads-5) as executor:
-                # Use executor.map to apply the process_link function to each URL in parallel
-                for i, descr in enumerate(tqdm(executor.map(process_link, links), total=len(links), desc="Processing Links")):
-                    print(i,descr)
-                    #if (i + 1) % 50 == 0 or (i + 1) == len(links):  # Check for the last batch as well
-                        #print(f"Scraped {i + 1} links")
-            self.df['descriptions'] = descriptions
-
-
-
-
-    def scrape_descriptions1(self):
-            descriptions = []
-            links = self.df['Link'].tolist()
-            hotels = self.df['Hotels'].tolist()
-
-            def process_link(link):
-                    try:
-                        URL = f'{link}'
-                        headers = {'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:121.0) Gecko/20100101 Firefox/121.0'}
-                        response = requests.get(URL, headers=headers)
-                        response.raise_for_status()  # Raises HTTPError for bad responses
-                        soup = BeautifulSoup(response.text, 'html.parser')
-
-                        div = soup.find('div', {'id': 'property_description_content'})
-
-                        if div is not None:
-                            # Find all p elements with a specific class within the div
-                            specific_class_p_elements = div.find_all('p', class_='a53cbfa6de b3efd73f69')
-
-                            for p in specific_class_p_elements:
-                                descriptions.append(p.get_text(strip=True))
-                        else:
-                            print(f"Error: 'property_description_content' div not found on {link}")
-                            descriptions.append(np.nan)  # or any value you prefer for NaN
-                    except Exception as e:
-                        print(f"Error processing link {link}: {e}")
-                        descriptions.append(np.nan)  # or any value you prefer for NaN
-                    return descriptions
-
-            # Create a ThreadPoolExecutor to run operations in parallel
-            threads = os.cpu_count()
-            descr_2 = []
-            hotels2 = []
-            with ThreadPoolExecutor(max_workers= threads-3) as executor:
-                # Use executor.map to apply the process_link function to each URL in parallel
-                for i, descr in zip(hotels,tqdm(executor.map(process_link, links), total=len(links), desc="Processing Links")):
-                    descr_2.append((i,descr))
-                    #hotels2.append(hote)
-                    #descr_2.append((hote, descr))  # Append a tuple containing hotel and its descriptions
-                
-                print(descr_2[0])
-                print(descr_2[4])
-                print(descr_2[10])
-
-    # Create a new DataFrame with the last two columns generated
-            #self.desc_df = pd.DataFrame(descr_2, columns=['Hotels', 'Descriptions'])
-
-            
-            #self.desc_df = pd.DataFrame({'Hotels': hotels2, 'Descriptions': descr_2})
-                    #if (i + 1) % 50 == 0 or (i + 1) == len(links):  # Check for the last batch as well
-                    #print(f"Scraped {i + 1} links")
-                
-
-            # Unpack sorted descriptions into separate lists
-            #sorted_links, sorted_descriptions = zip(*descriptions)
-
-            #self.df['descriptions'] = descriptions
-            #self.df['sorted_links'] = sorted_links
-            #return descriptions
-
-
-            # Perform any additional operations with descriptions as needed
+        # Flatten the results list
+        description_result = [item for sublist in results for item in sublist]
+        description_df = pd.DataFrame(description_result, columns=['Hotels', 'Descriptions'])
+        return description_df
